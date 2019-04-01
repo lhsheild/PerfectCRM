@@ -20,6 +20,8 @@ class Customer(models.Model):
     consultant = models.ForeignKey('UserProfile')
     memo = models.TextField(blank=True, null=True)
     date = models.DateTimeField(auto_now_add=True)
+    status_choices = ((0, '已报名'), (1, '未报名'),)
+    status = models.SmallIntegerField(choices=status_choices, default=1)
 
     def __str__(self):
         return self.qq
@@ -211,6 +213,7 @@ class Role(models.Model):
     角色表
     """
     name = models.CharField(max_length=32, unique=True)
+    menus = models.ManyToManyField('Menu', blank=True)
 
     def __str__(self):
         return self.name
@@ -218,3 +221,18 @@ class Role(models.Model):
     class Meta:
         verbose_name = '角色'
         verbose_name_plural = '角色'
+
+
+class Menu(models.Model):
+    """
+    菜单
+    """
+    name = models.CharField(max_length=32)
+    url_name = models.CharField(max_length=64, unique=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        verbose_name = '菜单'
+        verbose_name_plural = '菜单'
