@@ -1,20 +1,149 @@
-from django.contrib.auth.models import User
+from django.contrib import auth
+from django.contrib.auth.models import User, AbstractUser, AbstractBaseUser, PermissionsMixin, BaseUserManager, \
+    PermissionDenied
 from django.db import models
+from django.utils.translation import ugettext_lazy as _
+from multiselectfield import MultiSelectField
 
 
-# Create your models here.
+class UserManager(BaseUserManager):
+    use_in_migrations = True
+
+    def _create_user(self, username, password, **extra_fields):
+        """
+        Creates and saves a User with the given username, email and password.
+        """
+        if not username:
+            raise ValueError('The given username must be set')
+        email = self.normalize_email(username)
+        username = self.model.normalize_username(username)
+        user = self.model(username=username, email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_user(self, username, password=None, **extra_fields):
+        extra_fields.setdefault('is_staff', False)
+        extra_fields.setdefault('is_superuser', False)
+        return self._create_user(username, password, **extra_fields)
+
+    def create_superuser(self, username, password, **extra_fields):
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError('Superuser must have is_staff=True.')
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError('Superuser must have is_superuser=True.')
+
+        return self._create_user(username, password, **extra_fields)
+
+
+class UserProfile(AbstractBaseUser, PermissionsMixin):
+    """
+    账户表
+    """
+    username = models.EmailField(max_length=255, unique=True)
+    is_staff = models.BooleanField(
+        _('staff status'),
+        default=False,
+        help_text=_('Designates whether the user can log into this admin site.'),
+    )
+    is_admin = models.BooleanField(default=False)
+    name = models.CharField('名字', max_length=32)
+    department = models.ForeignKey('Department', default=None, blank=True, null=True)
+    mobile = models.CharField('手机', max_length=32, default=None, blank=True, null=True)
+    memo = models.TextField('备注', blank=True, default=None, null=True)
+    date_joined = models.DateTimeField(auto_now_add=True)
+
+    USERNAME_FIELD = 'username'
+    REQUIRED_FIELDS = ['name']
+
+    class Meta:
+        verbose_name = _('user')
+        verbose_name_plural = _('users')
+        abstract = True
+
+    def clean(self):
+        super(AbstractUser, self).clean()
+        self.email = self.__class__.objects.normalize_email(self.email)
+
+    def get_full_name(self):
+        """
+        Returns the first_name plus the last_name, with a space in between.
+        """
+        full_name = '%s %s' % (self.first_name, self.last_name)
+        return full_name.strip()
+
+    def get_short_name(self):
+        "Returns the short name for the user."
+        return self.first_name
+
+    def email_user(self, subject, message, from_email=None, **kwargs):
+        """
+        Sends an email to this User.
+        """
+        send_mail(subject, message, from_email, [self.email], **kwargs)
+
+    def __str__(self):
+        return self.name
+
+
+def _user_get_all_permissions(user, obj):
+    permissions = set()
+    for backend in auth.get_backends():
+        if hasattr(backend, "get_all_permissions"):
+            permissions.update(backend.get_all_permissions(user, obj))
+    return permissions
+
+
+def _user_has_perm(user, perm, obj):
+    """
+    A backend can raise `PermissionDenied` to short-circuit permission checking.
+    """
+    for backend in auth.get_backends():
+        if not hasattr(backend, 'has_perm'):
+            continue
+        try:
+            if backend.has_perm(user, perm, obj):
+                return True
+        except PermissionDenied:
+            return False
+    return False
+
+
+def _user_has_module_perms(user, app_label):
+    """
+    A backend can raise `PermissionDenied` to short-circuit permission checking.
+    """
+    for backend in auth.get_backends():
+        if not hasattr(backend, 'has_module_perms'):
+            continue
+        try:
+            if backend.has_module_perms(user, app_label):
+                return True
+        except PermissionDenied:
+            return False
+    return False
+
+
 class Customer(models.Model):
     """
     客户信息表
     """
-    name = models.CharField(max_length=32, null=True, blank=True)
-    qq = models.CharField(max_length=64, unique=True)
+    name = models.CharField(max_length=32, null=True, blank=True, help_text='报名后改为真实姓名')
+    qq = models.CharField(max_length=64, unique=True, null=False)
     qq_name = models.CharField(max_length=64, null=True, blank=True)
     phone = models.CharField(max_length=64, null=True, blank=True)
-    source_choices = ((0, '转介绍'), (1, 'QQ群'), (2, '官网'), (3, '百度推广'), (4, '51CTO'), (5, '知乎'), (6, '市场推广'))
-    source = models.SmallIntegerField(choices=source_choices)
-    referral_from = models.CharField(verbose_name='转介绍人QQ', max_length=64, null=True, blank=True)
-    consult_course = models.ForeignKey('Course', verbose_name='咨询课程')
+    source_type = (
+        ('referral', '转介绍'), ('qq', 'QQ群'), ('website', '官网'), ('baidu_ads', '百度推广'), ('office_direct', '直接上门'),
+        ('WoM', '口碑'), ('public_class', '公开课'), ('website_luffy', '路飞官网'), ('others', '其它'))
+    source = models.CharField(choices=source_type, max_length=64, default='qq')
+    introduce_from = models.ForeignKey('self', verbose_name='转介绍自学员', blank=True, null=True)
+    course_choices = (('LinuxL', 'Linux中高级'), ('PythonFullStack', 'Python高级全栈开发'))
+    course = models.MultiSelectField(choices=course_choices, verbose_name='咨询课程')
+    class_type_choices = (('fulltime', '脱产班'), ('online', '网络班'), ('weekend', '周末班'))
+    class_type = models.CharField('班级类型', max_length=64, choices=class_type_choices, default='fulltime')
     content = models.TextField(verbose_name='咨询详情')
     tags = models.ManyToManyField('Tag', null=True, blank=True)
     consultant = models.ForeignKey('UserProfile')
@@ -22,6 +151,9 @@ class Customer(models.Model):
     date = models.DateTimeField(auto_now_add=True)
     status_choices = ((0, '已报名'), (1, '未报名'),)
     status = models.SmallIntegerField(choices=status_choices, default=1)
+    sex_type = (('male', '男'), ('female', '女'))
+    sex = models.CharField(choices=sex_type, max_length=16, default='male', blank=True, null=True)
+    birthday = models.DateField('出生日期', default=None, help_text='格式yyyy-mm-dd', blank=True, null=True)
 
     def __str__(self):
         return self.qq
@@ -196,16 +328,12 @@ class Payment(models.Model):
         verbose_name_plural = '缴费记录'
 
 
-class UserProfile(models.Model):
-    """
-    账户表
-    """
-    user = models.OneToOneField(User)
-    name = models.CharField(max_length=32)
-    roles = models.ManyToManyField('Role', blank=True, null=True)
+class Department(models.Model):
+    name = models.CharField(max_length=32, verbose_name='部门名称')
+    count = models.IntegerField('人数', default=0)
 
     def __str__(self):
-        return self.name
+        return f'{self.name}  {self.count}'
 
 
 class Role(models.Model):
