@@ -15,9 +15,15 @@ Including another URLconf
 """
 from django.conf.urls import url, include
 from django.contrib import admin
+from crm import views as crm_views
 
 urlpatterns = [
     url(r'^admin/', admin.site.urls),
+    # 登录
+    url(r'^login/$', crm_views.login),
+    # 验证码
+    url(r'^get_valid_img/$', crm_views.get_valid_img),
+
     url(r'^crm/', include('crm.urls')),
     url(r'^student/', include('student.urls')),
 ]
