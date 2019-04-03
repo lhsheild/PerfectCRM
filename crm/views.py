@@ -13,11 +13,12 @@ def get_valid_img(request):
             import random
             return random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)
 
-        from PIL import Image, ImageDraw
+        from PIL import Image, ImageDraw, ImageFont
         from io import BytesIO
         img = Image.new('RGB', (350, 46), get_random_color())
         draw = ImageDraw.Draw(img)
-        draw.text()
+        font = ImageFont.truetype('static/font/fzsbt.ttf',32)
+        draw.text((0, 10), 'weicome to py', get_random_color(), font)
         f = BytesIO()
         img.save(f, 'png')
         data = f.getvalue()
