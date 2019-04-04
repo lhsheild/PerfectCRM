@@ -1,7 +1,7 @@
 # from django.contrib import auth
 # from django.contrib.auth.models import User, AbstractUser, AbstractBaseUser, PermissionsMixin, BaseUserManager, \
 #     PermissionDenied
-# from django.db import models
+from django.db import models
 # from django.utils.translation import ugettext_lazy as _
 # from multiselectfield import MultiSelectField
 #
@@ -364,3 +364,9 @@
 #     class Meta:
 #         verbose_name = '菜单'
 #         verbose_name_plural = '菜单'
+
+
+from django.contrib.auth.models import AbstractUser
+
+class UserInfo(AbstractUser):
+    tel = models.CharField(max_length=32)

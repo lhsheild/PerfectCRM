@@ -128,3 +128,6 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')  # 存放文件的具体位置
 APPEND_SLASH = True
 
 SESSION_SAVE_EVERY_REQUEST = True
+
+# 使用自己的USER表
+AUTH_USER_MODEL = 'crm.UserInfo'

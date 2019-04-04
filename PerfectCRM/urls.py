@@ -23,6 +23,8 @@ urlpatterns = [
     url(r'^login/$', crm_views.login),
     # 验证码
     url(r'^get_valid_img/$', crm_views.get_valid_img),
+    # 注册
+    url(r'^reg/$', crm_views.register),
 
     url(r'^crm/', include('crm.urls')),
     url(r'^student/', include('student.urls')),
